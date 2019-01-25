@@ -166,9 +166,6 @@ class Sodaq_RN2483
     bool sendCommand(const char* command, uint8_t paramValue);
     bool sendCommand(const char* command, const char* paramValue = NULL);
 
-    // Returns mac parameter.
-    void getMacParam(const char* paramName, char* buffer, uint8_t size);
-
     // Sends the given mac command together with the given paramValue
     // to the device and awaits for the response.
     // Returns true on success.
