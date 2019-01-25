@@ -98,7 +98,7 @@ void Sodaq_RN2483::fillVersionFromReceivedBuffer()
 // Takes care of the init tasks common to both initOTA() and initABP.
 // If hardware reset is available, the module is re-set, otherwise it is woken up if possible.
 // Returns true if the module replies to a device reset command.
-bool Sodaq_RN2483::init(SerialType& stream, int8_t resetPin)
+bool Sodaq_RN2483::init(SerialType& stream, int8_t resetPin, bool initParams, bool needMacReset)
 {
     debugPrintLn("[init]");
 
@@ -133,7 +133,7 @@ bool Sodaq_RN2483::init(SerialType& stream, int8_t resetPin)
 #endif
     }
 
-    return resetDevice();
+    return resetDevice(initParams) && (!needMacReset || sendCommand(STR_CMD_MAC_RESET));
 }
 
 // Initializes the device and connects to the network using Over-The-Air Activation.
@@ -142,7 +142,7 @@ bool Sodaq_RN2483::initOTA(SerialType& stream, const uint8_t devEUI[8], const ui
 {
     debugPrintLn("[initOTA]");
 
-    return init(stream, resetPin)
+    return init(stream, resetPin, true, true)
            && initOTA(devEUI, appEUI, appKey, adr);
 }
 
@@ -151,9 +151,13 @@ bool Sodaq_RN2483::initOTA(const uint8_t devEUI[8], const uint8_t appEUI[8], con
     return setMacParam(STR_DEV_EUI, devEUI, 8)
         && setMacParam(STR_APP_EUI, appEUI, 8)
         && setMacParam(STR_APP_KEY, appKey, 16)
+        && sendCommand("mac set devaddr 00000000")
+        && sendCommand("mac set nwkskey 00000000000000000000000000000000")
+        && sendCommand("mac set appskey 00000000000000000000000000000000")
         && setMacParam(STR_ADR, BOOL_TO_ONOFF(false))
         && joinNetwork(STR_OTAA)
-        && (!adr || setMacParam(STR_ADR, BOOL_TO_ONOFF(adr)));
+        && (!adr || setMacParam(STR_ADR, BOOL_TO_ONOFF(adr)))
+        && saveState();
 }
 
 // Initializes the device and connects to the network using Activation By Personalization.
@@ -162,7 +166,7 @@ bool Sodaq_RN2483::initABP(SerialType& stream, const uint8_t devAddr[4], const u
 {
     debugPrintLn("[initABP]");
 
-    return init(stream, resetPin)
+    return init(stream, resetPin, true, false)
            && initABP(devAddr, appSKey, nwkSKey, adr);
 }
 
@@ -173,7 +177,25 @@ bool Sodaq_RN2483::initABP(const uint8_t devAddr[4], const uint8_t appSKey[16], 
         && setMacParam(STR_NETWORK_SESSION_KEY, nwkSKey, 16)
         && setMacParam(STR_ADR, BOOL_TO_ONOFF(false))
         && joinNetwork(STR_ABP)
-        && (!adr || setMacParam(STR_ADR, BOOL_TO_ONOFF(adr)));
+        && (!adr || setMacParam(STR_ADR, BOOL_TO_ONOFF(adr)))
+        && saveState();
+}
+
+// Tries to initialize device with previously stored configuration parameters and state.
+// Returns true if initialization successful.
+bool Sodaq_RN2483::initResume(SerialType& stream, int8_t resetPin)
+{
+  if (!init(stream, resetPin, false, false)) { return false; }
+
+  return joinNetwork(STR_ABP);
+}
+
+// Saves the LoRaWAN Class A protocol configuration parameters to the user EEPROM.
+bool Sodaq_RN2483::saveState()
+{
+  println(STR_CMD_SAVE);
+
+  return expectString(STR_RESULT_OK, 5000);
 }
 
 // Sends the given payload without acknowledgement.
@@ -182,7 +204,11 @@ uint8_t Sodaq_RN2483::send(uint8_t port, const uint8_t* payload, uint8_t size)
 {
     debugPrintLn("[send]");
 
-    return macTransmit(STR_UNCONFIRMED, port, payload, size);
+    uint8_t i = macTransmit(STR_UNCONFIRMED, port, payload, size);
+
+    saveState();
+
+    return i;
 }
 
 // Sends the given payload with acknowledgement.
@@ -197,7 +223,11 @@ uint8_t Sodaq_RN2483::sendReqAck(uint8_t port, const uint8_t* payload,
         debugPrintLn("[sendReqAck] Non-fatal error: setting number of retries failed.");
     }
 
-    return macTransmit(STR_CONFIRMED, port, payload, size);
+    uint8_t i = macTransmit(STR_CONFIRMED, port, payload, size);
+
+    saveState();
+
+    return i;
 }
 
 // Copies the latest received packet (optionally starting from the "payloadStartPosition"
@@ -324,7 +354,9 @@ uint16_t Sodaq_RN2483::readLn(char* buffer, uint16_t size, uint16_t start)
 // Returns false if a timeout occurs or if another string is received.
 bool Sodaq_RN2483::expectString(const char* str, uint16_t timeout)
 {
-    debugPrint(String("[expectString] (\"") + str + "\") ");
+    debugPrint("[expectString] (\"");
+    debugPrint(str);
+    debugPrint("\") ");
 
     bool retval = false;
     unsigned long start = millis();
@@ -334,7 +366,9 @@ bool Sodaq_RN2483::expectString(const char* str, uint16_t timeout)
         debugPrint(".");
 
         if (readLn() > 0) {
-            debugPrint(String("--> \"") + this->_inputBuffer + "\"");
+            debugPrint("--> \"");
+            debugPrint(this->_inputBuffer);
+            debugPrint('"');
 
             if (strstr(this->_inputBuffer, str) != NULL) {
                 debugPrintLn(" found a match!");
@@ -368,7 +402,8 @@ void Sodaq_RN2483::hardwareReset()
     digitalWrite(_resetPin, LOW);
     sodaq_wdt_safe_delay(150);
     digitalWrite(_resetPin, HIGH);
-    readLn();
+
+    expectString(STR_DEVICE_TYPE_RN);
 }
 
 void Sodaq_RN2483::writeProlog()
@@ -531,7 +566,7 @@ size_t Sodaq_RN2483::println(void)
 // Sends a reset command to the module and waits for the success response (or timeout).
 // Also sets-up some initial parameters like power index, SF and FSB channels.
 // Returns true on success.
-bool Sodaq_RN2483::resetDevice()
+bool Sodaq_RN2483::resetDevice(bool needInitParams)
 {
     debugPrintLn("[resetDevice]");
 
@@ -544,8 +579,9 @@ bool Sodaq_RN2483::resetDevice()
             _isRN2903 = false;
             fillVersionFromReceivedBuffer();
 
-            return setPowerIndex(DEFAULT_PWR_IDX_868)
-                   && setSpreadingFactor(DEFAULT_SF_868);
+            return !needInitParams
+                   || (setPowerIndex(DEFAULT_PWR_IDX_868)
+                   && setSpreadingFactor(DEFAULT_SF_868));
         }
         else if (strstr(this->_inputBuffer, STR_DEVICE_TYPE_RN2903) != NULL) {
             debugPrintLn("The device type is RN2903");
@@ -553,9 +589,10 @@ bool Sodaq_RN2483::resetDevice()
             _isRN2903 = true;
             fillVersionFromReceivedBuffer();
 
-            return setFsbChannels(DEFAULT_FSB)
+            return !needInitParams
+                   || (setFsbChannels(DEFAULT_FSB)
                    && setPowerIndex(DEFAULT_PWR_IDX_915)
-                   && setSpreadingFactor(DEFAULT_SF_915);
+                   && setSpreadingFactor(DEFAULT_SF_915));
         }
         else {
             debugPrintLn("Unknown device type!");
@@ -688,6 +725,32 @@ bool Sodaq_RN2483::joinNetwork(const char* type)
     println();
 
     return expectOK() && expectString(STR_ACCEPTED, 30000);
+}
+
+// Returns mac parameter.
+void Sodaq_RN2483::getMacParam(const char* paramName, char* buffer, uint8_t size)
+{
+    print(STR_CMD_GET);
+    println(paramName);
+
+    unsigned long start = millis();
+
+    while (millis() - start < DEFAULT_TIMEOUT) {
+        sodaq_wdt_reset();
+        debugPrint('.');
+
+        if (readLn() > 0) {
+            debugPrint("--> \"");
+            debugPrint(this->_inputBuffer);
+            debugPrint("\"");
+
+            strncpy(buffer, this->_inputBuffer, size);
+
+            break;
+        }
+    }
+
+    debugPrintLn();
 }
 
 // Sends the given mac command together with the given paramValue
@@ -863,7 +926,7 @@ uint8_t Sodaq_RN2483::onMacRX()
         debugPrintLn("[onMacRX]: packet contains no payload.");
         return NoError;
     }
-    
+
     uint16_t len = strlen(token) + 1; // include termination char
     uint16_t start = (token - _inputBuffer);
     uint16_t inputIndex = start;
@@ -1029,5 +1092,8 @@ void Sodaq_RN2483::runTestSequence(SerialType& loraStream, Stream& debugStream)
     debugPrint("free ram: ");
     debugPrintLn(freeRam());
 #endif
+#else
+    (void)loraStream;
+    (void)debugStream;
 #endif
 }
