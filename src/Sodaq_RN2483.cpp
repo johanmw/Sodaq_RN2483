@@ -23,7 +23,7 @@
 #include "Utils.h"
 #include <Sodaq_wdt.h>
 
-#define DEBUG
+//#define DEBUG
 
 #ifdef DEBUG
 #define debugPrintLn(...) do { if (this->_diagStream) this->_diagStream->println(__VA_ARGS__); } while(0)
