@@ -1,5 +1,5 @@
 /*
-    Copyright (c) 2015 SODAQ. All rights reserved.
+    Copyright (c) 2015-2019 SODAQ. All rights reserved.
 
     This file is part of Sodaq_RN2483.
 
@@ -23,7 +23,7 @@
 #include "Utils.h"
 #include <Sodaq_wdt.h>
 
-//#define DEBUG
+#define DEBUG
 
 #ifdef DEBUG
 #define debugPrintLn(...) do { if (this->_diagStream) this->_diagStream->println(__VA_ARGS__); } while(0)
@@ -98,7 +98,7 @@ void Sodaq_RN2483::fillVersionFromReceivedBuffer()
 // Takes care of the init tasks common to both initOTA() and initABP.
 // If hardware reset is available, the module is re-set, otherwise it is woken up if possible.
 // Returns true if the module replies to a device reset command.
-bool Sodaq_RN2483::init(SerialType& stream, int8_t resetPin, bool initParams, bool needMacReset)
+bool Sodaq_RN2483::init(SerialType& stream, int8_t resetPin, bool needInitParams, bool needMacReset)
 {
     debugPrintLn("[init]");
 
@@ -133,7 +133,11 @@ bool Sodaq_RN2483::init(SerialType& stream, int8_t resetPin, bool initParams, bo
 #endif
     }
 
-    return resetDevice(initParams) && (!needMacReset || sendCommand(STR_CMD_MAC_RESET));
+    if (!resetDevice(needInitParams)) {
+        return false;
+    }
+
+    return !needMacReset || sendCommand(_isRN2903 ? STR_CMD_MAC_RESET : STR_CMD_MAC_RESET_868);
 }
 
 // Initializes the device and connects to the network using Over-The-Air Activation.
@@ -725,6 +729,32 @@ bool Sodaq_RN2483::joinNetwork(const char* type)
     println();
 
     return expectOK() && expectString(STR_ACCEPTED, 30000);
+}
+
+// Returns mac parameter.
+void Sodaq_RN2483::getMacParam(const char* paramName, char* buffer, uint8_t size)
+{
+    print(STR_CMD_GET);
+    println(paramName);
+
+    unsigned long start = millis();
+
+    while (millis() - start < DEFAULT_TIMEOUT) {
+        sodaq_wdt_reset();
+        debugPrint('.');
+
+        if (readLn() > 0) {
+            debugPrint("--> \"");
+            debugPrint(this->_inputBuffer);
+            debugPrint("\"");
+
+            strncpy(buffer, this->_inputBuffer, size);
+
+            break;
+        }
+    }
+
+    debugPrintLn();
 }
 
 // Sends the given mac command together with the given paramValue
