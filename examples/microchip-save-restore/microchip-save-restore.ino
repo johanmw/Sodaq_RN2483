@@ -20,17 +20,20 @@
 
 #include <Sodaq_RN2483.h>
 
-#if !defined(ARDUINO_SODAQ_EXPLORER)
-#error "Please select Sodaq ExpLoRer board"
-#endif
-
+#if defined(ARDUINO_SODAQ_EXPLORER)
 #define CONSOLE_STREAM  SerialUSB
 #define LORA_STREAM     Serial2
-
-#define LORA_PORT       1
 #define LORA_RESET_PIN  LORA_RESET
+#elif defined(ARDUINO_SODAQ_ONE)
+#define CONSOLE_STREAM  SerialUSB
+#define LORA_STREAM     Serial1
+#define LORA_RESET_PIN  LORA_RESET
+#else
+#error "Please select Sodaq ExpLoRer or SodaqOne board"
+#endif
 
 #define FORCE_FULL_JOIN 0
+#define LORA_PORT       1
 #define USE_OTAA        1
 #define USE_ABP         0
 
@@ -58,7 +61,7 @@ void setup()
     CONSOLE_STREAM.println("Booting...");
 
     if (FORCE_FULL_JOIN || !LoRaBee.initResume(LORA_STREAM, LORA_RESET_PIN)) {
-        LoRaBee.init(LORA_STREAM, LORA_RESET_PIN, false, true);
+        LoRaBee.init(LORA_STREAM, LORA_RESET_PIN, true, true);
 
         uint8_t eui[8];
         if (LoRaBee.getHWEUI(eui, sizeof(eui)) != 8) { return; }
@@ -92,10 +95,10 @@ void loop()
 
     uint8_t buf[] = {'t', 'e', 's', 't'};
 
-    uint8_t b = LoRaBee.send(LORA_PORT, buf, sizeof(buf));
+    uint8_t i = LoRaBee.send(LORA_PORT, buf, sizeof(buf));
 
     CONSOLE_STREAM.print("LoRa sendTest: ");
-    CONSOLE_STREAM.println(b);
+    CONSOLE_STREAM.println(i);
 
     // wait 5 minutes
     CONSOLE_STREAM.println("Need wait 5 minutes...");
