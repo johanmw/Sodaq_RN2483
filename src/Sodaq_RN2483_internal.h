@@ -37,12 +37,16 @@
 #define STR_RESULT_MAC_PAUSED "mac_paused"
 #define STR_RESULT_INVALID_DATA_LEN "invalid_data_len"
 
+#define STR_CMD_MAC_RESET "mac reset"
+#define STR_CMD_MAC_RESET_868 "mac reset 868"
 #define STR_CMD_RESET "sys reset"
 #define STR_DEVICE_TYPE_RN "RN"
 #define STR_DEVICE_TYPE_RN2483 "RN2483"
 #define STR_DEVICE_TYPE_RN2903 "RN2903"
 
+#define STR_CMD_GET "mac get "
 #define STR_CMD_SET "mac set "
+#define STR_CMD_SAVE "mac save"
 #define STR_RETRIES "retx "
 #define STR_DEV_ADDR "devaddr "
 #define STR_APP_SESSION_KEY "appskey "

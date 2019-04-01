@@ -1,5 +1,5 @@
 /*
-    Copyright (c) 2015 SODAQ. All rights reserved.
+    Copyright (c) 2015-2019 SODAQ. All rights reserved.
 
     This file is part of Sodaq_RN2483.
 
@@ -100,7 +100,7 @@ class Sodaq_RN2483
     // Takes care of the initialization tasks common to both initOTA() and initABP().
     // If hardware reset is available, the module is re-set, otherwise it is woken up if possible.
     // Returns true if the module replies to a device reset command.
-    bool init(SerialType& stream, int8_t resetPin = -1);
+    bool init(SerialType& stream, int8_t resetPin = -1, bool needInitParams = true, bool needMacReset = false);
 
     // Initializes the device and connects to the network using Over-The-Air Activation.
     // Returns true on successful connection.
@@ -111,6 +111,13 @@ class Sodaq_RN2483
     // Returns true on successful connection.
     bool initABP(SerialType& stream, const uint8_t devAddr[4], const uint8_t appSKey[16], const uint8_t nwkSKey[16], bool adr = true, int8_t resetPin = -1);
     bool initABP(const uint8_t devAddr[4], const uint8_t appSKey[16], const uint8_t nwkSKey[16], bool adr = true);
+
+    // Tries to initialize device with previously stored configuration parameters and state.
+    // Returns true if initialization successful.
+    bool initResume(SerialType& stream, int8_t resetPin);
+
+    // Saves the LoRaWAN Class A protocol configuration parameters to the user EEPROM.
+    bool saveState();
 
     // Sets the optional "Diagnostics and Debug" stream.
     void setDiag(Stream& stream) { _diagStream = &stream; };
@@ -150,6 +157,9 @@ class Sodaq_RN2483
     // Sets the power index (868MHz: 1 to 5 / 915MHz: 5, 7, 8, 9 or 10)
     // Returns true if successful.
     bool setPowerIndex(uint8_t powerIndex);
+
+    // Returns mac parameter.
+    void getMacParam(const char* paramName, char* buffer, uint8_t size);
 
     // Sends the command together with the given paramValue (optional)
     // to the device and awaits for the response.
@@ -293,7 +303,7 @@ class Sodaq_RN2483
 
     // Sends a reset command to the module and waits for the success response (or timeout).
     // Returns true on success.
-    bool resetDevice();
+    bool resetDevice(bool needInitParams);
 
     // Sends a join network command to the device and waits for the response (or timeout).
     // Returns true on success.
