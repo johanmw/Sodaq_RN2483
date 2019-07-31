@@ -757,6 +757,33 @@ void Sodaq_RN2483::getMacParam(const char* paramName, char* buffer, uint8_t size
     debugPrintLn();
 }
 
+// Get radio commands. 
+void Sodaq_RN2483::getRadioParam(const char *paramName, char *buffer, uint8_t size)
+{
+    print(STR_RADIO_GET);
+    println(paramName);
+
+    unsigned long start = millis();
+
+    while (millis() - start < DEFAULT_TIMEOUT) {
+        sodaq_wdt_reset();
+        debugPrint('.');
+
+        if (readLn() > 0) {
+            debugPrint("--> \"");
+            debugPrint(this->_inputBuffer);
+            debugPrint("\"");
+
+            strncpy(buffer, this->_inputBuffer, size);
+
+            break;
+        }
+    }
+
+    debugPrintLn();
+}
+
+
 // Sends the given mac command together with the given paramValue
 // to the device and awaits for the response.
 // Returns true on success.

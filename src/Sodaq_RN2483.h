@@ -161,6 +161,9 @@ class Sodaq_RN2483
     // Returns mac parameter.
     void getMacParam(const char* paramName, char* buffer, uint8_t size);
 
+    // Return radio parameter.
+    void getRadioParam(const char *paramName, char *buffer, uint8_t size);
+
     // Sends the command together with the given paramValue (optional)
     // to the device and awaits for the response.
     // Returns true on success.

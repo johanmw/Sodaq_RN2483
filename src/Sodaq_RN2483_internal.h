@@ -58,6 +58,8 @@
 #define STR_PWR_IDX "pwridx "
 #define STR_DATARATE "dr "
 
+#define STR_RADIO_GET "radio get "
+
 #define STR_CMD_JOIN "mac join "
 #define STR_OTAA "otaa"
 #define STR_ABP "abp"
