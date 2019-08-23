@@ -59,6 +59,9 @@
 #define STR_DATARATE "dr "
 
 #define STR_RADIO_GET "radio get "
+#define STR_RADIO_RSSI "radio get rssi"
+#define STR_RADIO_PWR "radio get pwr"
+#define STR_RADIO_SNR "radio get snr"
 
 #define STR_CMD_JOIN "mac join "
 #define STR_OTAA "otaa"

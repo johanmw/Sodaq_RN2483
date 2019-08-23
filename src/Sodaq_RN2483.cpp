@@ -418,11 +418,38 @@ void Sodaq_RN2483::writeProlog()
     }
 }
 
+
+// and false on any other reponse. 
+boolean Sodaq_RN2483::readResult()
+{   
+    unsigned long start = millis();
+
+    while (millis() - start < DEFAULT_TIMEOUT) {
+        sodaq_wdt_reset();
+        debugPrint('.');
+
+        if (readLn() > 0) {
+            debugPrint("--> \"");
+            debugPrint(this->_inputBuffer);
+            debugPrint("\"");
+
+            return true;
+        }
+    } 
+    return false;
+}
+
+
+
 // Write a byte, as binary data
 size_t Sodaq_RN2483::writeByte(uint8_t value)
 {
     return this->_loraStream->write(value);
 }
+
+
+
+
 
 size_t Sodaq_RN2483::print(const String& buffer)
 {
@@ -737,21 +764,9 @@ void Sodaq_RN2483::getMacParam(const char* paramName, char* buffer, uint8_t size
     print(STR_CMD_GET);
     println(paramName);
 
-    unsigned long start = millis();
-
-    while (millis() - start < DEFAULT_TIMEOUT) {
-        sodaq_wdt_reset();
-        debugPrint('.');
-
-        if (readLn() > 0) {
-            debugPrint("--> \"");
-            debugPrint(this->_inputBuffer);
-            debugPrint("\"");
-
-            strncpy(buffer, this->_inputBuffer, size);
-
-            break;
-        }
+    if (readResult())
+    {
+        strncpy(buffer, this->_inputBuffer, size);
     }
 
     debugPrintLn();
@@ -763,24 +778,58 @@ void Sodaq_RN2483::getRadioParam(const char *paramName, char *buffer, uint8_t si
     print(STR_RADIO_GET);
     println(paramName);
 
-    unsigned long start = millis();
-
-    while (millis() - start < DEFAULT_TIMEOUT) {
-        sodaq_wdt_reset();
-        debugPrint('.');
-
-        if (readLn() > 0) {
-            debugPrint("--> \"");
-            debugPrint(this->_inputBuffer);
-            debugPrint("\"");
-
-            strncpy(buffer, this->_inputBuffer, size);
-
-            break;
-        }
+    if (readResult())
+    {
+        strncpy(buffer, this->_inputBuffer, size);
     }
 
     debugPrintLn();
+}
+
+// Radio Signal Strength Indication. 
+int8_t Sodaq_RN2483::getRSSI()
+{
+    uint8_t value = 127;    // Error condition
+    println(STR_RADIO_RSSI);
+
+    if (readResult())
+    {
+        value = atoi(_inputBuffer);        
+    }
+
+    debugPrintLn();
+    return value;
+}
+
+
+// Radio Signal Strength Indication. 
+int8_t Sodaq_RN2483::getSNR()
+{
+    uint8_t value = -128;    // Error condition
+    println(STR_RADIO_SNR);
+
+    if (readResult())
+    {
+        value = atoi(_inputBuffer);        
+    }
+
+    debugPrintLn();
+    return value;
+}
+
+// Radio Signal Strength Indication. 
+int8_t Sodaq_RN2483::getPowerLevel()
+{
+    uint8_t value = -128;    // Error condition
+    println(STR_RADIO_PWR);
+
+    if (readResult())
+    {
+        value = atoi(_inputBuffer);            
+    }
+
+    debugPrintLn();
+    return value;
 }
 
 

@@ -164,6 +164,15 @@ class Sodaq_RN2483
     // Return radio parameter.
     void getRadioParam(const char *paramName, char *buffer, uint8_t size);
 
+    // Return the RSSI Radio Signal Strength Indication (dBm?)
+    int8_t getRSSI();
+
+    // Get the signal to noise ratio
+    int8_t getSNR();
+
+    // Reports the transmitter output power from -3..15.
+    int8_t getPowerLevel();
+
     // Sends the command together with the given paramValue (optional)
     // to the device and awaits for the response.
     // Returns true on success.
@@ -253,6 +262,10 @@ class Sodaq_RN2483
 
     // (optional) callback to call when a reply is received
     ReceiveCallback _receiveCallback;
+
+    // Get result this function returns true if the buffer contains a valid entry
+    // and false on any other reponse. 
+    boolean readResult();
 
     // Enables hardware-resetting the module.
     void enableHardwareReset(uint8_t resetPin) { this->_resetPin = resetPin; };
