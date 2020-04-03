@@ -114,7 +114,8 @@ class Sodaq_RN2483
 
     // Tries to initialize device with previously stored configuration parameters and state.
     // Returns true if initialization successful.
-    bool initResume(SerialType& stream, int8_t resetPin);
+    bool initResumeABP(SerialType& stream, int8_t resetPin);
+    bool initResumeOTAA(SerialType& stream, int8_t resetPin);
 
     // Saves the LoRaWAN Class A protocol configuration parameters to the user EEPROM.
     bool saveState();
@@ -153,6 +154,10 @@ class Sodaq_RN2483
     // LoraWAN specs mapping for 868MHz and 915MHz,
     // using the given spreading factor parameter.
     bool setSpreadingFactor(uint8_t spreadingFactor);
+
+    // This function returns the currently used spreading factor.
+    // It returns the nummeric as used for the 868 MHz standard.
+    uint8_t getSpreadingFactor();
 
     // Sets the power index (868MHz: 1 to 5 / 915MHz: 5, 7, 8, 9 or 10)
     // Returns true if successful.
@@ -264,7 +269,7 @@ class Sodaq_RN2483
     ReceiveCallback _receiveCallback;
 
     // Get result this function returns true if the buffer contains a valid entry
-    // and false on any other reponse. 
+    // and false on any other reponse.
     boolean readResult();
 
     // Enables hardware-resetting the module.

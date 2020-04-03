@@ -23,7 +23,7 @@
 #include "Utils.h"
 #include <Sodaq_wdt.h>
 
-//#define DEBUG
+#define DEBUG
 
 #ifdef DEBUG
 #define debugPrintLn(...) do { if (this->_diagStream) this->_diagStream->println(__VA_ARGS__); } while(0)
@@ -187,12 +187,22 @@ bool Sodaq_RN2483::initABP(const uint8_t devAddr[4], const uint8_t appSKey[16], 
 
 // Tries to initialize device with previously stored configuration parameters and state.
 // Returns true if initialization successful.
-bool Sodaq_RN2483::initResume(SerialType& stream, int8_t resetPin)
+bool Sodaq_RN2483::initResumeABP(SerialType& stream, int8_t resetPin)
 {
   if (!init(stream, resetPin, false, false)) { return false; }
 
   return joinNetwork(STR_ABP);
 }
+
+// Tries to initialize the device with previous parametr, but using OTAA.
+
+bool Sodaq_RN2483::initResumeOTAA(SerialType& stream, int8_t resetPin)
+{
+  if (!init(stream, resetPin, false, false)) { return false; }
+
+  return joinNetwork(STR_OTAA);
+}
+
 
 // Saves the LoRaWAN Class A protocol configuration parameters to the user EEPROM.
 bool Sodaq_RN2483::saveState()
@@ -419,9 +429,9 @@ void Sodaq_RN2483::writeProlog()
 }
 
 
-// and false on any other reponse. 
+// and false on any other reponse.
 boolean Sodaq_RN2483::readResult()
-{   
+{
     unsigned long start = millis();
 
     while (millis() - start < DEFAULT_TIMEOUT) {
@@ -435,7 +445,7 @@ boolean Sodaq_RN2483::readResult()
 
             return true;
         }
-    } 
+    }
     return false;
 }
 
@@ -772,7 +782,7 @@ void Sodaq_RN2483::getMacParam(const char* paramName, char* buffer, uint8_t size
     debugPrintLn();
 }
 
-// Get radio commands. 
+// Get radio commands.
 void Sodaq_RN2483::getRadioParam(const char *paramName, char *buffer, uint8_t size)
 {
     print(STR_RADIO_GET);
@@ -786,7 +796,7 @@ void Sodaq_RN2483::getRadioParam(const char *paramName, char *buffer, uint8_t si
     debugPrintLn();
 }
 
-// Radio Signal Strength Indication. 
+// Radio Signal Strength Indication.
 int8_t Sodaq_RN2483::getRSSI()
 {
     uint8_t value = 127;    // Error condition
@@ -794,7 +804,7 @@ int8_t Sodaq_RN2483::getRSSI()
 
     if (readResult())
     {
-        value = atoi(_inputBuffer);        
+        value = atoi(_inputBuffer);
     }
 
     debugPrintLn();
@@ -802,7 +812,7 @@ int8_t Sodaq_RN2483::getRSSI()
 }
 
 
-// Radio Signal Strength Indication. 
+// Radio Signal Strength Indication.
 int8_t Sodaq_RN2483::getSNR()
 {
     uint8_t value = -128;    // Error condition
@@ -810,14 +820,14 @@ int8_t Sodaq_RN2483::getSNR()
 
     if (readResult())
     {
-        value = atoi(_inputBuffer);        
+        value = atoi(_inputBuffer);
     }
 
     debugPrintLn();
     return value;
 }
 
-// Radio Signal Strength Indication. 
+// Radio Signal Strength Indication.
 int8_t Sodaq_RN2483::getPowerLevel()
 {
     uint8_t value = -128;    // Error condition
@@ -825,13 +835,39 @@ int8_t Sodaq_RN2483::getPowerLevel()
 
     if (readResult())
     {
-        value = atoi(_inputBuffer);            
+        value = atoi(_inputBuffer);
     }
 
     debugPrintLn();
     return value;
 }
 
+
+uint8_t Sodaq_RN2483::getSpreadingFactor()
+{
+    uint8_t spreadingFactor = -1;    // Error condition
+
+    print(STR_CMD_GET);
+    println("dr");
+
+    if (readResult())
+    {
+        int8_t datarate;
+
+        datarate = atoi(_inputBuffer);
+        if (!_isRN2903) {
+            // RN2483 SF(DR) = 7(5), 8(4), 9(3), 10(2), 11(1), 12(0)
+            spreadingFactor = 12 - datarate;
+        }
+        else {
+            // RN2903 SF(DR) = 7(3), 8(2), 9(1), 10(0)
+            spreadingFactor = 10 - datarate;
+        }
+
+    }
+    debugPrintLn();
+    return spreadingFactor;
+}
 
 // Sends the given mac command together with the given paramValue
 // to the device and awaits for the response.
